@@ -2,10 +2,7 @@ package eu.pb4.brewery.other;
 
 import com.google.gson.GsonBuilder;
 import com.mojang.brigadier.CommandDispatcher;
-import com.mojang.brigadier.arguments.BoolArgumentType;
-import com.mojang.brigadier.arguments.DoubleArgumentType;
-import com.mojang.brigadier.arguments.FloatArgumentType;
-import com.mojang.brigadier.arguments.IntegerArgumentType;
+import com.mojang.brigadier.arguments.*;
 import com.mojang.brigadier.context.CommandContext;
 import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.serialization.JsonOps;
@@ -16,6 +13,9 @@ import eu.pb4.brewery.drink.AlcoholManager;
 import eu.pb4.brewery.drink.DefaultDefinitions;
 import eu.pb4.brewery.drink.DrinkType;
 import eu.pb4.brewery.drink.DrinkUtils;
+import eu.pb4.brewery.item.BookOfBreweryItem;
+import eu.pb4.brewery.item.BrewItems;
+import eu.pb4.sgui.api.gui.BookGui;
 import me.lucko.fabric.api.permissions.v0.Permissions;
 import net.fabricmc.loader.api.FabricLoader;
 import net.minecraft.block.Blocks;
@@ -30,6 +30,8 @@ import net.minecraft.entity.LivingEntity;
 import net.minecraft.server.command.CommandManager;
 import net.minecraft.server.command.ServerCommandSource;
 import net.minecraft.server.network.ServerPlayerEntity;
+import net.minecraft.sound.SoundCategory;
+import net.minecraft.sound.SoundEvents;
 import net.minecraft.text.Text;
 import net.minecraft.util.Identifier;
 
@@ -99,8 +101,26 @@ public class BrewCommands {
                         ).then(literal("dump_defaults")
                                 .requires(Permissions.require("brewery.dump_defaults", 4))
                                 .executes((ctx) -> dumpDefaultDefinitions())
+                        ).then(literal("gui")
+                                .then(argument("id", StringArgumentType.greedyString())
+                                        .executes(BrewCommands::gui)
+                                )
                         )
         );
+    }
+
+    private static int gui(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
+        int r = 0;
+        var id = Identifier.tryParse(StringArgumentType.getString(ctx, "id"));
+        var player = ctx.getSource().getPlayer();
+        if (id != null && player != null) {
+            player.server.execute(() -> {
+                player.playSoundToPlayer(SoundEvents.ITEM_BOOK_PAGE_TURN, SoundCategory.BLOCKS, 1f, 1);
+                new BookOfBreweryItem.BrewGui(player, id, true, ()->new BookGui(player, BrewItems.BOOK_ITEM.getDefaultStack()).open()).open();
+            });
+            r = 1;
+        }
+        return r;
     }
 
     private static int setAlcoholValue(CommandContext<ServerCommandSource> ctx) throws CommandSyntaxException {
